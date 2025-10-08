@@ -28,10 +28,10 @@ jobs:
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Build Docker image
-        run: docker build -t faustomestanza/microservicio-inventario:latest .
+        run: docker build -t faustomestanza/microservicio-gestioninventario:latest .
 
       - name: Push Docker image
-        run: docker push faustomestanza/microservicio-inventario:latest
+        run: docker push faustomestanza/microservicio-gestioninventario:latest
 
   test:
     runs-on: ubuntu-latest
