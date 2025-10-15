@@ -177,17 +177,17 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 from datetime import timedelta
 
 # Django REST Framework
-REST_FRAMEWORK = {
+#REST_FRAMEWORK = {
     # Todas las vistas usarán JWT como autenticación por defecto
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    ),
+    #"DEFAULT_AUTHENTICATION_CLASSES": (
+       # "rest_framework_simplejwt.authentication.JWTAuthentication",
+   # ),
     # Por defecto, todo requiere estar autenticado.
     # (Luego podrás abrir endpoints concretos con AllowAny en la vista)
-    "DEFAULT_PERMISSION_CLASSES": (
-        "rest_framework.permissions.IsAuthenticated",
-    ),
-}
+    #"DEFAULT_PERMISSION_CLASSES": (
+        #"rest_framework.permissions.IsAuthenticated",
+    #),
+#}
 
 # CORS (en desarrollo permite todos los orígenes)
 CORS_ALLOW_ALL_ORIGINS = True
