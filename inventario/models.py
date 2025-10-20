@@ -24,7 +24,8 @@ class Equipo(models.Model):
     fecha_registro = models.DateTimeField(auto_now_add=True)
     ultima_actualizacion = models.DateTimeField(auto_now=True)
     #qr_uuid = models.CharField(max_length=64, blank=True, null=True, unique=True)
-    qr_uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    qr_uuid = models.UUIDField(default=uuid.uuid4, editable=False, blank=True, null=True)
+
 
 
     def __str__(self):
