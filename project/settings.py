@@ -15,7 +15,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "clave-insegura")
 DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
 
-# 👇 Actualiza el dominio a TU microservicio de préstamos
+
 CSRF_TRUSTED_ORIGINS = [
     "https://microservicio-gestionprestamo-fmcxb0gvcshag6av.brazilsouth-01.azurewebsites.net"
 ]
