@@ -20,6 +20,11 @@ CSRF_TRUSTED_ORIGINS = [
     "https://microservicio-gestionprestamo-fmcxb0gvcshag6av.brazilsouth-01.azurewebsites.net"
 ]
 
+# Para indicar que Azure maneja HTTPS externamente
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = False  # No fuerces HTTPS internamente, Azure ya lo hace
+
+
 # --- Aplicaciones instaladas ---
 INSTALLED_APPS = [
     'django.contrib.admin',
