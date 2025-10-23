@@ -5,7 +5,8 @@ from .serializers import PrestamoSerializer
 import requests
 
 # 🌐 URLs de tus microservicios en la nube (Azure)
-USUARIOS_URL = "https://microservicio-usuarios-gsbhdjavc9fjf9a8.brazilsouth-01.azurewebsites.net/api/usuarios/"
+USUARIOS_URL = "https://microservicio-usuarios-gsbhdjavc9fjf9a8.brazilsouth-01.azurewebsites.net/api/v1/usuarios/"
+
 INVENTARIO_URL = "https://microservicio-gestioninventario-e7byadgfgdhpfyen.brazilsouth-01.azurewebsites.net/api/equipos/"
 
 class PrestamoViewSet(viewsets.ModelViewSet):
