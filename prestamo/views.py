@@ -10,15 +10,19 @@ INVENTARIO_URL = "https://microservicio-gestioninventario-e7byadgfgdhpfyen.brazi
 
 class PrestamoViewSet(viewsets.ModelViewSet):
     """
-    CRUD completo para gestión de préstamos
+    CRUD completo para gestión de préstamos.
+    Valida usuario y equipo antes de crear el préstamo y actualiza el estado del equipo.
     """
     queryset = Prestamo.objects.all().order_by('-fecha_inicio')
     serializer_class = PrestamoSerializer
 
     def create(self, request, *args, **kwargs):
         data = request.data
-        usuario_id = data.get("usuario_id")
         equipo_id = data.get("equipo_id")
+        usuario_id = data.get("usuario_id")
+
+        print("==== CREACIÓN DE PRÉSTAMO ====")
+        print("Datos recibidos:", data)
 
         # 🔹 Validar usuario
         try:
@@ -27,8 +31,8 @@ class PrestamoViewSet(viewsets.ModelViewSet):
             if user_response.status_code != 200:
                 return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
         except requests.exceptions.RequestException as e:
-            print("Error conexión usuarios:", e)
-            return Response({"error": "Error conexión microservicio usuarios"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            print("❌ Error conexión usuarios:", e)
+            return Response({"error": "Error de conexión con microservicio usuarios"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
         # 🔹 Validar equipo
         try:
@@ -39,25 +43,33 @@ class PrestamoViewSet(viewsets.ModelViewSet):
 
             equipo = eq_response.json()
             if equipo.get("estado") != "Disponible":
+                print("⚠️ Equipo no disponible:", equipo.get("estado"))
                 return Response({"error": "Equipo no disponible para préstamo"}, status=status.HTTP_400_BAD_REQUEST)
         except requests.exceptions.RequestException as e:
-            print("Error conexión inventario:", e)
-            return Response({"error": "Error conexión microservicio inventario"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            print("❌ Error conexión inventario:", e)
+            return Response({"error": "Error de conexión con microservicio inventario"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-        # 🔹 Crear préstamo
-        serializer = self.get_serializer(data=data)
-        if not serializer.is_valid():
-            print("Error validación:", serializer.errors)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # 🔹 Crear el préstamo manualmente (no con serializer.save)
+        try:
+            prestamo = Prestamo.objects.create(
+                equipo_id=equipo_id,
+                usuario_id=usuario_id,
+                fecha_compromiso=data.get("fecha_compromiso"),
+                estado=EstadoPrestamo.ABIERTO
+            )
+            print("✅ Préstamo guardado en DB con ID:", prestamo.id)
+        except Exception as e:
+            print("❌ Error al guardar préstamo:", e)
+            return Response({"error": "No se pudo registrar el préstamo"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        prestamo = serializer.save(estado=EstadoPrestamo.ABIERTO)
-
-        # 🔹 Actualizar estado del equipo
+        # 🔹 Cambiar estado del equipo a “Prestado”
         try:
             patch_resp = requests.patch(f"{INVENTARIO_URL}{equipo_id}/", json={"estado": "Prestado"})
             print("PATCH inventario:", patch_resp.status_code, patch_resp.text)
         except requests.exceptions.RequestException as e:
-            print("Error actualizando estado del equipo:", e)
+            print("⚠️ Error actualizando estado del equipo:", e)
+
+        print("==== FIN DE CREACIÓN ====")
 
         # 🔹 Respuesta final
         return Response(
