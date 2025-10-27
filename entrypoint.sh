@@ -22,5 +22,6 @@ if [ "$DJANGO_SUPERUSER_USERNAME" ] && [ "$DJANGO_SUPERUSER_PASSWORD" ] && [ "$D
 fi
 
 # Arrancar Gunicorn
+# Arrancar Gunicorn
 echo "Iniciando Gunicorn..."
 exec gunicorn project.wsgi:application --bind 0.0.0.0:8000

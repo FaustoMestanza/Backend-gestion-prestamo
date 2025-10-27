@@ -44,7 +44,7 @@ class PrestamoViewSet(viewsets.ModelViewSet):
             if user_response.status_code != 200:
                 return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
         except requests.exceptions.RequestException as e:
-            print("❌ Error conexión usuarios:", e)
+            print(" Error conexión usuarios:", e)
             return Response({"error": "Error de conexión con microservicio usuarios"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
         # Validar equipo
