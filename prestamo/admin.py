@@ -1,6 +1,6 @@
 # users/admin.py
 from django.contrib import admin
-from .models import Equipo
+from .models import Prestamo
 
 @admin.register(Equipo)
 class EquipoAdmin(admin.ModelAdmin):
