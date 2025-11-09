@@ -95,7 +95,7 @@ class PrestamoViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """
-        Permite listar solo los préstamos del docente autenticado
+        Permite listar solo los préstamos del docente autenticado flutter
         (desde Gateway o Flutter).
         """
         queryset = Prestamo.objects.all().order_by('-fecha_inicio')
