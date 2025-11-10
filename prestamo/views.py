@@ -24,7 +24,7 @@ class PrestamoViewSet(viewsets.ModelViewSet):
         print("==== CREACIÓN DE PRÉSTAMO ====")
         print("Datos recibidos:", data)
 
-        #  Verificar si el usuario ya tiene un préstamo activo
+        # 🔹 Verificar si el usuario ya tiene un préstamo activo
         prestamo_activo = Prestamo.objects.filter(
             usuario_id=usuario_id,
             estado=EstadoPrestamo.ABIERTO
@@ -37,17 +37,17 @@ class PrestamoViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Validar usuario
+        # 🔹 Validar usuario en microservicio
         try:
             user_response = requests.get(f"{USUARIOS_URL}{usuario_id}/")
             print("USUARIO RESP:", user_response.status_code)
             if user_response.status_code != 200:
                 return Response({"error": "Usuario no encontrado"}, status=status.HTTP_404_NOT_FOUND)
         except requests.exceptions.RequestException as e:
-            print(" Error conexión usuarios:", e)
+            print("⚠️ Error conexión usuarios:", e)
             return Response({"error": "Error de conexión con microservicio usuarios"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
-        # Validar equipo
+        # 🔹 Validar equipo
         try:
             eq_response = requests.get(f"{INVENTARIO_URL}{equipo_id}/")
             print("EQUIPO RESP:", eq_response.status_code)
@@ -59,7 +59,7 @@ class PrestamoViewSet(viewsets.ModelViewSet):
                 print("⚠️ Equipo no disponible:", equipo.get("estado"))
                 return Response({"error": "Equipo no disponible para préstamo"}, status=status.HTTP_400_BAD_REQUEST)
         except requests.exceptions.RequestException as e:
-            print("Error conexión inventario:", e)
+            print("⚠️ Error conexión inventario:", e)
             return Response({"error": "Error de conexión con microservicio inventario"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
         # 🔹 Crear el préstamo
@@ -71,9 +71,9 @@ class PrestamoViewSet(viewsets.ModelViewSet):
                 fecha_compromiso=data.get("fecha_compromiso"),
                 estado=EstadoPrestamo.ABIERTO
             )
-            print("Préstamo guardado en DB con ID:", prestamo.id)
+            print("✅ Préstamo guardado en DB con ID:", prestamo.id)
         except Exception as e:
-            print("Error al guardar préstamo:", e)
+            print("❌ Error al guardar préstamo:", e)
             return Response({"error": "No se pudo registrar el préstamo"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         # 🔹 Cambiar estado del equipo a “Prestado”
@@ -93,22 +93,47 @@ class PrestamoViewSet(viewsets.ModelViewSet):
             },
             status=status.HTTP_201_CREATED
         )
-    
+
     def get_queryset(self):
         """
-        Permite listar solo los préstamos del docente autenticado flutter
-        (desde Gateway o Flutter).
+        🔍 Permite listar préstamos filtrando por:
+        - Docente autenticado (registrado_por_id)
+        - Código del equipo (para búsquedas desde Flutter)
         """
         queryset = Prestamo.objects.all().order_by('-fecha_inicio')
 
+        # 🔸 Filtro por docente logueado (opcional)
         docente_id = (
             self.request.headers.get('X-User-Id')
             or self.request.query_params.get('registradoPor_id')
         )
-
         if docente_id:
             queryset = queryset.filter(registrado_por_id=docente_id)
-               
-        return queryset   
-               
-    
+
+        # 🔸 Filtro adicional por código del equipo (para QR o búsqueda manual)
+        codigo = self.request.query_params.get('codigo')
+        if codigo:
+            try:
+                # Consultar al microservicio Inventario para obtener ID del equipo
+                resp = requests.get(f"{INVENTARIO_URL}?codigo={codigo}")
+                if resp.status_code == 200:
+                    equipos = resp.json()
+                    # Manejar si la respuesta es lista o diccionario
+                    if isinstance(equipos, list) and equipos:
+                        equipo_id = equipos[0].get("id")
+                    elif isinstance(equipos, dict):
+                        equipo_id = equipos.get("id")
+                    else:
+                        equipo_id = None
+
+                    if equipo_id:
+                        queryset = queryset.filter(equipo_id=equipo_id)
+                    else:
+                        queryset = queryset.none()
+                else:
+                    queryset = queryset.none()
+            except Exception as e:
+                print("⚠️ Error buscando equipo por código:", e)
+                queryset = queryset.none()
+
+        return queryset
