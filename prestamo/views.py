@@ -106,7 +106,7 @@ class PrestamoViewSet(viewsets.ModelViewSet):
         )
 
         if docente_id:
-            queryset = queryset.filter(registradoPor_id=docente_id)
+            queryset = queryset.filter(registrado_por_id=docente_id)
                
         return queryset   
                

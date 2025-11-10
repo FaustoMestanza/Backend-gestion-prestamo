@@ -8,7 +8,8 @@ class EstadoPrestamo(models.TextChoices):
 class Prestamo(models.Model):
     equipo_id = models.IntegerField()   # ID del equipo (de Inventario)
     usuario_id = models.IntegerField()  # ID del usuario (de Usuarios)
-    registradoPor_id = models.IntegerField(null=True, blank=True)
+    registrado_por_id = models.IntegerField(null=True, blank=True)
+
 
     fecha_inicio = models.DateTimeField(auto_now_add=True)
     fecha_compromiso = models.DateTimeField()
