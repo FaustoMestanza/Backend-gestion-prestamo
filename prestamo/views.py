@@ -67,6 +67,7 @@ class PrestamoViewSet(viewsets.ModelViewSet):
             prestamo = Prestamo.objects.create(
                 equipo_id=equipo_id,
                 usuario_id=usuario_id,
+                registrado_por_id=data.get("registrado_por_id"),
                 fecha_compromiso=data.get("fecha_compromiso"),
                 estado=EstadoPrestamo.ABIERTO
             )
