@@ -13,6 +13,9 @@ class PrestamoViewSet(viewsets.ModelViewSet):
     queryset = Prestamo.objects.all().order_by('-fecha_inicio')
     serializer_class = PrestamoSerializer
 
+    # ===========================================================
+    #     CREAR PRÉSTAMO
+    # ===========================================================
     def create(self, request, *args, **kwargs):
         data = request.data
         equipo_id = data.get("equipo_id")
@@ -76,6 +79,9 @@ class PrestamoViewSet(viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED
         )
 
+    # ===========================================================
+    #     RETRIEVE
+    # ===========================================================
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         fecha_actual = datetime.now(timezone.utc)
@@ -87,10 +93,13 @@ class PrestamoViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
+    # ===========================================================
+    #     FILTROS Y AUTOREGISTRO DE VENCIDOS EN LISTADOS
+    # ===========================================================
     def get_queryset(self):
         queryset = Prestamo.objects.all().order_by('-fecha_inicio')
 
-        # Actualizar estados vencidos
+        # Actualizar estados vencidos automáticamente
         fecha_actual = datetime.now(timezone.utc)
         for p in queryset:
             if fecha_actual > p.fecha_compromiso and p.estado != EstadoPrestamo.VENCIDO:
@@ -126,108 +135,105 @@ class PrestamoViewSet(viewsets.ModelViewSet):
                 queryset = queryset.none()
 
         return queryset
-# ===========================================================
-# NOTIFICACIONES
-# ===========================================================
 
-@action(detail=False, methods=['get'])
-def vencidos(self, request):
-    """Devuelve préstamos vencidos con datos del alumno, equipo y docente."""
-    ahora = datetime.now(timezone.utc)
+    # ===========================================================
+    #     🔥 ENDPOINT PERSONALIZADO: PRÉSTAMOS VENCIDOS
+    # ===========================================================
+    @action(detail=False, methods=['get'])
+    def vencidos(self, request):
+        """Devuelve préstamos vencidos con datos del alumno, equipo y docente."""
+        ahora = datetime.now(timezone.utc)
 
-    prestamos = Prestamo.objects.filter(
-        fecha_compromiso__lt=ahora,
-        estado=EstadoPrestamo.ABIERTO
-    )
+        prestamos = Prestamo.objects.filter(
+            fecha_compromiso__lt=ahora,
+            estado=EstadoPrestamo.ABIERTO
+        )
 
-    resultado = []
+        resultado = []
 
-    for p in prestamos:
-        p.estado = EstadoPrestamo.VENCIDO
-        p.save()
+        for p in prestamos:
+            p.estado = EstadoPrestamo.VENCIDO
+            p.save()
 
-        # Alumno
-        alumno = {}
-        try:
-            r = requests.get(f"{USUARIOS_URL}{p.usuario_id}/")
-            if r.status_code == 200:
-                alumno = r.json()
-        except:
+            # Alumno
             alumno = {}
+            try:
+                r = requests.get(f"{USUARIOS_URL}{p.usuario_id}/")
+                if r.status_code == 200:
+                    alumno = r.json()
+            except:
+                alumno = {}
 
-        # Equipo
-        equipo = {}
-        try:
-            r2 = requests.get(f"{INVENTARIO_URL}{p.equipo_id}/")
-            if r2.status_code == 200:
-                equipo = r2.json()
-        except:
+            # Equipo
             equipo = {}
+            try:
+                r2 = requests.get(f"{INVENTARIO_URL}{p.equipo_id}/")
+                if r2.status_code == 200:
+                    equipo = r2.json()
+            except:
+                equipo = {}
 
-        # Docente
-        docente = {}
-        try:
-            r3 = requests.get(f"{USUARIOS_URL}{p.registrado_por_id}/")
-            if r3.status_code == 200:
-                docente = r3.json()
-        except:
+            # Docente
             docente = {}
+            try:
+                r3 = requests.get(f"{USUARIOS_URL}{p.registrado_por_id}/")
+                if r3.status_code == 200:
+                    docente = r3.json()
+            except:
+                docente = {}
 
-        resultado.append({
-            "prestamo_id": p.id,
-            "usuario_nombre": f"{alumno.get('nombre', '')} {alumno.get('apellido', '')}".strip(),
-            "equipo_nombre": equipo.get("nombre", ""),
-            "equipo_codigo": equipo.get("codigo", ""),
-            "fecha_compromiso": p.fecha_compromiso,
-            "docente_nombre": f"{docente.get('nombre', '')} {docente.get('apellido', '')}".strip(),
+            resultado.append({
+                "prestamo_id": p.id,
+                "usuario_nombre": f"{alumno.get('nombre', '')} {alumno.get('apellido', '')}".strip(),
+                "equipo_nombre": equipo.get("nombre", ""),
+                "equipo_codigo": equipo.get("codigo", ""),
+                "fecha_compromiso": p.fecha_compromiso,
+                "docente_nombre": f"{docente.get('nombre', '')} {docente.get('apellido', '')}".strip(),
+                "docente_token": docente.get("token_notificacion", None)
+            })
 
-            # 🟩 TOKEN DEL DOCENTE (para enviárselo el día del vencimiento)
-            "docente_token": docente.get("token_notificacion", None)
-        })
+        return Response(resultado)
 
-    return Response(resultado)
+    # ===========================================================
+    #     🔥 ENDPOINT PERSONALIZADO: PRÉSTAMOS POR VENCER
+    # ===========================================================
+    @action(detail=False, methods=['get'])
+    def por_vencer(self, request):
+        """Préstamos que vencerán dentro de 24 horas."""
+        ahora = datetime.now(timezone.utc)
+        mañana = ahora + timedelta(days=1)
 
+        prestamos = Prestamo.objects.filter(
+            fecha_compromiso__date=mañana.date(),
+            estado=EstadoPrestamo.ABIERTO
+        )
 
-@action(detail=False, methods=['get'])
-def por_vencer(self, request):
-    """Préstamos que vencerán dentro de 24 horas."""
-    ahora = datetime.now(timezone.utc)
-    mañana = ahora + timedelta(days=1)
+        resultado = []
 
-    prestamos = Prestamo.objects.filter(
-        fecha_compromiso__date=mañana.date(),
-        estado=EstadoPrestamo.ABIERTO
-    )
-
-    resultado = []
-
-    for p in prestamos:
-
-        alumno = {}
-        try:
-            r = requests.get(f"{USUARIOS_URL}{p.usuario_id}/")
-            if r.status_code == 200:
-                alumno = r.json()
-        except:
+        for p in prestamos:
             alumno = {}
+            try:
+                r = requests.get(f"{USUARIOS_URL}{p.usuario_id}/")
+                if r.status_code == 200:
+                    alumno = r.json()
+            except:
+                alumno = {}
 
-        equipo = {}
-        try:
-            r2 = requests.get(f"{INVENTARIO_URL}{p.equipo_id}/")
-            if r2.status_code == 200:
-                equipo = r2.json()
-        except:
             equipo = {}
+            try:
+                r2 = requests.get(f"{INVENTARIO_URL}{p.equipo_id}/")
+                if r2.status_code == 200:
+                    equipo = r2.json()
+            except:
+                equipo = {}
 
-        resultado.append({
-            "prestamo_id": p.id,
-            "usuario_id": p.usuario_id,
-            "usuario_nombre": f"{alumno.get('nombre', '')} {alumno.get('apellido', '')}".strip(),
-            "equipo_nombre": equipo.get("nombre", ""),
-            "fecha_compromiso": p.fecha_compromiso,
+            resultado.append({
+                "prestamo_id": p.id,
+                "usuario_id": p.usuario_id,
+                "usuario_nombre": f"{alumno.get('nombre', '')} {alumno.get('apellido', '')}".strip(),
+                "equipo_nombre": equipo.get("nombre", ""),
+                "fecha_compromiso": p.fecha_compromiso,
+                "token_notificacion": alumno.get("token_notificacion", None)
+            })
 
-            # 🟩 TOKEN DEL ESTUDIANTE (para enviárselo 24h antes)
-            "token_notificacion": alumno.get("token_notificacion", None)
-        })
-
-    return Response(resultado)
+        return Response(resultado)
