@@ -1,9 +1,10 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
+from rest_framework.decorators import action
 from .models import Prestamo, EstadoPrestamo
 from .serializers import PrestamoSerializer
 import requests
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 USUARIOS_URL = "https://microservicio-usuarios-gsbhdjavc9fjf9a8.brazilsouth-01.azurewebsites.net/api/v1/usuarios/"
 INVENTARIO_URL = "https://microservicio-gestioninventario-e7byadgfgdhpfyen.brazilsouth-01.azurewebsites.net/api/equipos/"
@@ -77,8 +78,8 @@ class PrestamoViewSet(viewsets.ModelViewSet):
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-
         fecha_actual = datetime.now(timezone.utc)
+
         if fecha_actual > instance.fecha_compromiso and instance.estado != EstadoPrestamo.VENCIDO:
             instance.estado = EstadoPrestamo.VENCIDO
             instance.save()
@@ -89,7 +90,7 @@ class PrestamoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = Prestamo.objects.all().order_by('-fecha_inicio')
 
-        # Actualizar estados vencidos al listar
+        # Actualizar estados vencidos
         fecha_actual = datetime.now(timezone.utc)
         for p in queryset:
             if fecha_actual > p.fecha_compromiso and p.estado != EstadoPrestamo.VENCIDO:
@@ -99,12 +100,12 @@ class PrestamoViewSet(viewsets.ModelViewSet):
         # Filtro por docente
         docente_id = (
             self.request.headers.get('X-User-Id')
-            or self.request.query_params.get('registradoPor_id')
+            or self.request.query_params.get('registrado_por_id')
         )
         if docente_id:
-            queryset = queryset.filter(registradoPor_id=docente_id)
+            queryset = queryset.filter(registrado_por_id=docente_id)
 
-        # Filtro por código del equipo
+        # Filtro por código de equipo
         codigo = self.request.query_params.get('codigo')
         if codigo:
             try:
@@ -118,13 +119,81 @@ class PrestamoViewSet(viewsets.ModelViewSet):
                     else:
                         equipo_id = None
 
-                    if equipo_id:
-                        queryset = queryset.filter(equipo_id=equipo_id)
-                    else:
-                        queryset = queryset.none()
+                    queryset = queryset.filter(equipo_id=equipo_id) if equipo_id else queryset.none()
                 else:
                     queryset = queryset.none()
-            except Exception:
+            except:
                 queryset = queryset.none()
 
         return queryset
+
+    # ===========================================================
+    # NOTIFICACIONES
+    # ===========================================================
+
+    @action(detail=False, methods=['get'])
+    def vencidos(self, request):
+        """Devuelve préstamos vencidos con datos del alumno, equipo y docente."""
+        ahora = datetime.now(timezone.utc)
+
+        prestamos = Prestamo.objects.filter(
+            fecha_compromiso__lt=ahora,
+            estado=EstadoPrestamo.ABIERTO
+        )
+
+        resultado = []
+
+        for p in prestamos:
+            p.estado = EstadoPrestamo.VENCIDO
+            p.save()
+
+            # Alumno
+            alumno = {}
+            try:
+                r = requests.get(f"{USUARIOS_URL}{p.usuario_id}/")
+                if r.status_code == 200:
+                    alumno = r.json()
+            except:
+                alumno = {}
+
+            # Equipo
+            equipo = {}
+            try:
+                r2 = requests.get(f"{INVENTARIO_URL}{p.equipo_id}/")
+                if r2.status_code == 200:
+                    equipo = r2.json()
+            except:
+                equipo = {}
+
+            # Docente
+            docente = {}
+            try:
+                r3 = requests.get(f"{USUARIOS_URL}{p.registrado_por_id}/")
+                if r3.status_code == 200:
+                    docente = r3.json()
+            except:
+                docente = {}
+
+            resultado.append({
+                "prestamo_id": p.id,
+                "usuario_nombre": f"{alumno.get('nombre', '')} {alumno.get('apellido', '')}".strip(),
+                "equipo_nombre": equipo.get("nombre", ""),
+                "equipo_codigo": equipo.get("codigo", ""),
+                "fecha_compromiso": p.fecha_compromiso,
+                "docente_nombre": f"{docente.get('nombre', '')} {docente.get('apellido', '')}".strip(),
+            })
+
+        return Response(resultado)
+
+    @action(detail=False, methods=['get'])
+    def por_vencer(self, request):
+        """Préstamos que vencerán dentro de 24 horas."""
+        ahora = datetime.now(timezone.utc)
+        mañana = ahora + timedelta(days=1)
+
+        prestamos = Prestamo.objects.filter(
+            fecha_compromiso__date=mañana.date(),
+            estado=EstadoPrestamo.ABIERTO
+        )
+
+        return Response(PrestamoSerializer(prestamos, many=True).data)
