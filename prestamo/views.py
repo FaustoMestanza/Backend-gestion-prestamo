@@ -146,14 +146,13 @@ class PrestamoViewSet(viewsets.ModelViewSet):
 
         prestamos = Prestamo.objects.filter(
             fecha_compromiso__lt=ahora,
-            estado=EstadoPrestamo.ABIERTO
+            
         )
 
         resultado = []
 
         for p in prestamos:
-            p.estado = EstadoPrestamo.VENCIDO
-            p.save()
+            
 
             # Alumno
             alumno = {}
