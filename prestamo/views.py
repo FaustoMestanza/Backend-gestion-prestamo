@@ -195,7 +195,7 @@ class PrestamoViewSet(viewsets.ModelViewSet):
 
             resultado.append({
                 "prestamo_id": p.id,
-                "usuario_nombre": f"{alumno.get('nombre', '')} {alumno.get('apellido', '')}".strip(),
+                "usuario_nombre": f"{alumno.get('first_name', '')} {alumno.get('last_name', '')}".strip(),
                 "equipo_nombre": equipo.get("nombre", ""),
                 "equipo_codigo": equipo.get("codigo", ""),
                 "fecha_compromiso": p.fecha_compromiso,
@@ -241,7 +241,7 @@ class PrestamoViewSet(viewsets.ModelViewSet):
             resultado.append({
                 "prestamo_id": p.id,
                 "usuario_id": p.usuario_id,
-                "usuario_nombre": f"{alumno.get('nombre', '')} {alumno.get('apellido', '')}".strip(),
+                "usuario_nombre": f"{alumno.get('first_name', '')} {alumno.get('last_name', '')}".strip(),
                 "equipo_nombre": equipo.get("nombre", ""),
                 "fecha_compromiso": p.fecha_compromiso,
                 "token_notificacion": alumno.get("token_notificacion", None)
