@@ -80,13 +80,18 @@ class PrestamoViewSet(viewsets.ModelViewSet):
         )
 
     # ===========================================================
-    #     RETRIEVE
+    #     RETRIEVE — corregido para NO tocar préstamos cerrados
     # ===========================================================
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         fecha_actual = datetime.now(timezone.utc)
 
-        if fecha_actual > instance.fecha_compromiso and instance.estado != EstadoPrestamo.VENCIDO:
+        # ❗ CORRECCIÓN:
+        # Solo se marca vencido si está ABIERTO, nunca si ya está CERRADO o VENCIDO.
+        if (
+            instance.estado == EstadoPrestamo.ABIERTO and
+            fecha_actual > instance.fecha_compromiso
+        ):
             instance.estado = EstadoPrestamo.VENCIDO
             instance.save()
 
@@ -99,10 +104,15 @@ class PrestamoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = Prestamo.objects.all().order_by('-fecha_inicio')
 
-        # Actualizar estados vencidos automáticamente
         fecha_actual = datetime.now(timezone.utc)
+
+        # ❗ CORRECCIÓN IMPORTANTE:
+        # NO convertir a vencido si el préstamo ya está CERRADO.
         for p in queryset:
-            if fecha_actual > p.fecha_compromiso and p.estado != EstadoPrestamo.VENCIDO:
+            if (
+                p.estado == EstadoPrestamo.ABIERTO and    # ← agregado
+                fecha_actual > p.fecha_compromiso
+            ):
                 p.estado = EstadoPrestamo.VENCIDO
                 p.save()
 
@@ -141,18 +151,20 @@ class PrestamoViewSet(viewsets.ModelViewSet):
     # ===========================================================
     @action(detail=False, methods=['get'])
     def vencidos(self, request):
-        """Devuelve préstamos vencidos con datos del alumno, equipo y docente."""
+        """
+        Devuelve préstamos vencidos con datos del alumno, equipo y docente.
+        YA NO CAMBIA ESTADOS — SOLO LISTA.
+        """
         ahora = datetime.now(timezone.utc)
 
         prestamos = Prestamo.objects.filter(
             fecha_compromiso__lt=ahora,
-            
+            estado=EstadoPrestamo.VENCIDO   # ← CORRECCIÓN: solo vencidos reales
         )
 
         resultado = []
 
         for p in prestamos:
-            
 
             # Alumno
             alumno = {}
